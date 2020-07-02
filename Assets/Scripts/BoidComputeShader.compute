@@ -1,0 +1,39 @@
+#pragma kernel CSMain
+static const int threadGroupSize = 1024;
+
+struct Boid {
+    float3 position;
+    float3 direction;
+
+    float3 avoidOthersDirection;
+    float3 alignmentDirection;
+    float3 groupCenter;
+    int numberNearBoids;
+};
+
+RWStructuredBuffer<Boid> boids;
+int totalNumberOfBoids;
+float visionRadius;
+float avoidRadius;
+
+[numthreads(threadGroupSize, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    for (int indexB = 0; indexB < totalNumberOfBoids; indexB++) {
+        if (id.x != indexB) {
+            Boid boidB = boids[indexB];
+            float3 offset = boidB.position - boids[id.x].position;
+            float sqrDst = offset.x * offset.x + offset.y * offset.y + offset.z * offset.z;
+
+            if (sqrDst < visionRadius * visionRadius) {
+                boids[id.x].numberNearBoids += 1;
+                boids[id.x].alignmentDirection += boidB.direction;
+                boids[id.x].groupCenter += boidB.position;
+
+                if (sqrDst < avoidRadius * avoidRadius) {
+                    boids[id.x].avoidOthersDirection -= offset / sqrDst;
+                }
+            }
+        }
+    }
+}
